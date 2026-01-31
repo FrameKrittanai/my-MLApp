@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vision - Bright Blue Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bright-blue-top: #00d2ff; /* ฟ้าสดใส */
+            --bright-blue-bottom: #3a8dff; /* ฟ้าเข้มขึ้นเล็กน้อย */
+            --card-glass: rgba(255, 255, 255, 0.25);
+            --text-white: #ffffff;
+        }
+
+        /* พื้นหลังสีฟ้าสดใสและฟองสบู่ */
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(135deg, var(--bright-blue-top) 0%, var(--bright-blue-bottom) 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ระบบฟองสบู่ */
+        .bubble-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            bottom: -100px;
+            animation: bubbleRise 12s linear infinite;
+        }
+
+        @keyframes bubbleRise {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { opacity: 0.6; }
+            100% { transform: translateY(-110vh) scale(1.2); opacity: 0; }
+        }
+
+        /* Card ดีไซน์กระจกใส (Glassmorphism) */
+        .card {
+            background: var(--card-glass);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            width: 90%;
+            max-width: 400px;
+            padding: 40px;
+            border-radius: 35px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            z-index: 10;
+        }
+
+        h2 {
+            font-weight: 500;
+            color: var(--text-white);
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 25px;
+        }
+
+        /* ช่อง Preview */
+        .preview-area {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            margin-bottom: 25px;
+        }
+
+        #image-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* ปุ่มอัปโหลดแบบคลีน */
+        .btn-upload {
+            background: #ffffff;
+            color: #3a8dff;
+            padding: 15px 35px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.3s;
+            display: inline-block;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .btn-upload:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+            background: #f0f0f0;
+        }
+
+        input[type="file"] { display: none; }
+
+        /* ผลลัพธ์ */
+        #result-box {
+            margin-top: 25px;
+            display: none;
+        }
+
+        .result-label {
+            font-size: 1.3rem;
+            color: white;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #ffffff;
+            width: 0%;
+            transition: width 0.8s ease-out;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bubble-container" id="bubble-container"></div>
+
+    <div class="card">
+        <h2>AI Vision</h2>
+        <p class="subtitle">วิเคราะห์ภาพในบรรยากาศสดใส</p>
+
+        <div class="preview-area">
+            <span id="hint-text" style="color: white;">คลิกเลือกรูปภาพ</span>
+            <img id="image-preview">
+        </div>
+
+        <label for="upload" class="btn-upload">อัปโหลดรูป</label>
+        <input id="upload" type="file" accept="image/*" onchange="handleImage(event)">
+
+        <div id="result-box">
+            <div class="result-label" id="res-name">กำลังคำนวณ...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="res-bar"></div>
+            </div>
+            <p id="res-percent" style="color: white; font-size: 0.8rem; margin-top: 8px;">0%</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script>
+        const MODEL_URL = "https://teachablemachine.withgoogle.com/models/HByCxfcWF/";
+        let classifier;
+
+        async function handleImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('image-preview');
+                const hint = document.getElementById('hint-text');
+                const resultBox = document.getElementById('result-box');
+                
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                hint.style.display = 'none';
+                resultBox.style.display = 'block';
+
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => runAI(img);
+            }
+            reader.readAsDataURL(file);
+        }
+
+        async function runAI(imgElement) {
+            if (!classifier) {
+                classifier = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+            }
+            const predictions = await classifier.predict(imgElement);
+            predictions.sort((a, b) => b.probability - a.probability);
+            
+            const top = predictions[0];
+            const percentage = Math.round(top.probability * 100);
+
+            document.getElementById('res-name').innerText = top.className;
+            document.getElementById('res-bar').style.width = percentage + "%";
+            document.getElementById('res-percent').innerText = "ความมั่นใจ " + percentage + "%";
+        }
+
+        // สร้างฟองสบู่
+        const container = document.getElementById('bubble-container');
+        for (let i = 0; i < 15; i++) {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            const size = Math.random() * 40 + 10 + "px";
+            bubble.style.width = size;
+            bubble.style.height = size;
+            bubble.style.left = Math.random() * 100 + "%";
+            bubble.style.animationDelay = Math.random() * 8 + "s";
+            bubble.style.animationDuration = Math.random() * 5 + 7 + "s";
+            container.appendChild(bubble);
+        }
+    </script>
+</body>
+</html>
